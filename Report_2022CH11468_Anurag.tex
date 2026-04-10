@@ -1,0 +1,482 @@
+\documentclass[12pt, a4paper, twocolumn]{article}
+
+% ── Packages ────────────────────────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage[margin=2cm]{geometry}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage{url}
+\usepackage{enumitem}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!60!black,
+    citecolor=green!50!black,
+    urlcolor=blue!70!black
+}
+
+% ── Code listing style ──────────────────────────────────────────────
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\scriptsize,
+    keywordstyle=\color{blue!80!black}\bfseries,
+    commentstyle=\color{green!50!black}\itshape,
+    stringstyle=\color{red!60!black},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    frame=single,
+    breaklines=true,
+    captionpos=b,
+    tabsize=4
+}
+
+% ====================================================================
+% CRITICAL FIX: The document begins HERE, before the title page.
+% ====================================================================
+\begin{document}
+
+\begin{titlepage}
+    \centering
+    
+    % --- COLLEGE LOGO SPACE ---
+    \vspace*{0.5cm}
+    \includegraphics[width=0.3\textwidth]{figures/logo.png} 
+    \vspace{1cm}
+    
+    % --- INSTITUTION ---
+    {\scshape\LARGE Indian Institute of Technology Delhi \par}
+    \vspace{0.3cm}
+    {\Large Department of Chemical Engineering\par}
+    
+    \vspace{2cm}
+    
+    % --- TITLE ---
+    \rule{\textwidth}{0.4pt} \\[0.5cm]
+    {\huge \textbf{Self-Organized Criticality in the Drossel--Schwabl\\[0.3em] 
+    Forest Fire Model: Simulation and Analysis}\par}
+    \vspace{0.2cm}
+    \rule{\textwidth}{0.4pt} \\[1.5cm]
+    
+    % --- COURSE INFO ---
+    {\large \textit{Course: Complexity Science}}\par
+    
+    \vspace{2cm}
+    
+    % --- AUTHOR INFO ---
+    {\Large \textbf{Anurag Sen}}\par
+    \vspace{0.2cm}
+    {\large 2022CH11468}\par
+    \vspace{0.2cm}
+    {\large \textit{ch1221468@iitd.ac.in}}\par
+    
+    \vfill
+    
+    % --- DATE ---
+    {\large 10 April 2026\par}
+    \vspace*{1cm}
+\end{titlepage}
+
+% ════════════════════════════════════════════════════════════════════
+\begin{abstract}
+Self-organized criticality (SOC) is a property of dynamical systems that naturally evolve toward a critical state without external tuning.
+In this work, we study the Drossel--Schwagl forest fire model as a canonical example of SOC.
+We implement the model on a two-dimensional square lattice with periodic boundary conditions using Python and investigate the statistical properties of fire avalanches.
+The system exhibits the three hallmarks of complexity: \textit{noise} (stochastic tree growth), \textit{avalanches} (fire cascades that burn connected tree clusters), and \textit{connectivity} (nearest-neighbour interactions on the lattice).
+We compare two connectivity regimes --- Von~Neumann (4-neighbour) and Moore (8-neighbour) --- and find that the avalanche size distribution follows an approximate power law $P(s) \sim s^{-\tau}$ with exponents $\tau \approx 1.3$ in both cases.
+Higher connectivity leads to larger mean avalanche sizes and lower steady-state tree density, but both regimes reach a self-organized critical state characterized by scale-free fire statistics and fluctuating tree density around a well-defined mean.
+\end{abstract}
+
+\textbf{Keywords:} Self-organized criticality, forest fire model, power-law distributions, avalanche dynamics, complexity science, cellular automata.
+
+% ════════════════════════════════════════════════════════════════════
+\section{Introduction}
+\label{sec:intro}
+
+The concept of self-organized criticality (SOC) was introduced by Bak, Tang, and Wiesenfeld in 1987 through their study of sandpile models~\citep{bak1987}.
+SOC describes systems that naturally evolve toward a critical state --- a state poised at the boundary between order and disorder --- without the need for fine-tuning of external parameters.
+At this critical state, perturbations of all sizes occur, and the distribution of event sizes follows a power law, indicating the absence of a characteristic scale.
+
+SOC has been identified in a wide range of natural and engineered systems, including earthquakes~\citep{olami1992}, neuronal activity in the brain, solar flares, and biological evolution.
+The universality of SOC makes it a central concept in complexity science.
+
+In this project, we study the \textbf{Drossel--Schwagl forest fire model}~\citep{drossel1992}, a cellular automaton that was introduced as a paradigmatic example of SOC.
+The model is defined on a lattice where cells can be empty or occupied by a tree.
+Trees grow stochastically, and fires are ignited randomly by lightning strikes; once ignited, fire spreads deterministically to all connected trees, burning entire clusters.
+The competition between slow growth and fast, rare fires drives the system to a critical state in which fire sizes exhibit a power-law distribution.
+
+We chose this system because it is not related to chemical engineering yet is a classic model in complexity science with clear, well-separated mechanisms for noise, avalanches, and connectivity.
+Furthermore, it admits efficient computational simulation, enabling us to generate large datasets for statistical analysis.
+
+The remainder of this paper is organized as follows.
+Section~\ref{sec:system} describes the system and its complexity-science attributes.
+Section~\ref{sec:methods} details the simulation methodology.
+Section~\ref{sec:results} presents the results of our simulations and analyses.
+Section~\ref{sec:soc} discusses the self-organized critical state.
+Section~\ref{sec:conclusion} concludes the paper.
+
+% ════════════════════════════════════════════════════════════════════
+\section{System Description}
+\label{sec:system}
+
+\subsection{Why the Forest Fire Model Is a Good Candidate for Complexity Science}
+
+The Drossel--Schwagl forest fire model is an ideal candidate for studying complexity science for several reasons:
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Emergent complexity from simple rules.}
+    The model consists of only three rules (growth, spread, ignition), yet produces complex, scale-free behaviour that cannot be predicted from any single rule alone.
+
+    \item \textbf{Separation of time scales.}
+    The growth rate $p$ and the lightning frequency $f$ define two well-separated time scales ($p/f \gg 1$), which is a hallmark of systems that exhibit SOC.
+
+    \item \textbf{Power-law statistics.}
+    The model produces avalanches (fires) whose size distribution follows a power law, the signature of criticality without parameter tuning.
+
+    \item \textbf{Universality.}
+    The model belongs to a universality class of SOC systems and its critical exponents are insensitive to microscopic details, making it representative of a broad class of phenomena.
+\end{enumerate}
+
+\subsection{Noise, Avalanche, and Connectivity}
+\label{sec:nac}
+
+\textbf{Noise.}
+In complexity science, noise refers to the slow, stochastic driving that pushes the system toward the critical state.
+In the forest fire model, noise is the random tree growth: at each time step, every empty cell has a probability $p$ of growing a tree.
+This process slowly builds up connected tree clusters, accumulating ``fuel'' that will eventually be released in a fire.
+
+\textbf{Avalanche.}
+An avalanche is a rapid, cascading event triggered by a small perturbation.
+In our model, an avalanche is a fire: when lightning strikes a tree (probability $f$ per tree per step), the fire spreads to all connected trees, burning the entire cluster.
+The size of the avalanche is the number of trees burned.
+Critically, avalanches of all sizes occur, from single-tree fires to system-spanning conflagrations.
+
+\textbf{Connectivity.}
+Connectivity defines how perturbations propagate through the system.
+In the forest fire model, connectivity is the neighbourhood structure of the lattice: fire spreads from a burning cell to its nearest neighbours.
+We study two connectivity regimes:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Von~Neumann (4-neighbour):} Each cell connects to its north, south, east, and west neighbours.
+    \item \textbf{Moore (8-neighbour):} Each cell connects to all eight surrounding cells, including diagonals.
+\end{itemize}
+Higher connectivity allows fire to spread through sparser forests, fundamentally altering the avalanche statistics.
+
+% ════════════════════════════════════════════════════════════════════
+\section{Simulation Methodology}
+\label{sec:methods}
+
+\subsection{Model Definition}
+
+We simulate the forest fire model on a two-dimensional square lattice of size $L \times L$ with periodic boundary conditions (toroidal topology).
+Each cell $i$ has a state $\sigma_i \in \{0, 1\}$, where $0$ denotes empty and $1$ denotes tree.
+
+At each discrete time step, the following rules are applied:
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Growth:} Each empty cell becomes a tree with probability $p$.
+    \item \textbf{Lightning:} Each tree is struck by lightning with probability $f$. If struck, the fire burns the entire connected cluster of trees instantaneously.
+\end{enumerate}
+
+The cluster is identified by breadth-first search (BFS) from the ignition site, and all trees in the cluster are set to empty.
+The number of trees burned constitutes the avalanche size $s$.
+
+\subsection{Simulation Parameters}
+
+The parameters used in our simulations are summarized in Table~\ref{tab:params}.
+
+\begin{table}[H]
+\centering
+\caption{Simulation parameters.}
+\label{tab:params}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Parameter & Symbol & Value \\
+\midrule
+Lattice size & $L$ & 128 \\
+Growth probability & $p$ & 0.05 \\
+Lightning probability & $f$ & $2 \times 10^{-4}$ \\
+Number of time steps & $T$ & 8000 \\
+Random seed & --- & 42 \\
+Connectivity & --- & Von Neumann / Moore \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The ratio $p/f = 250$ ensures adequate separation of time scales.
+The lattice size $L = 128$ provides $128^2 = 16{,}384$ cells, which is large enough to observe the power-law regime while remaining computationally tractable.
+
+\subsection{Implementation}
+
+The simulation is implemented in Python~3 using NumPy for array operations.
+The core algorithm is structured as follows:
+
+\begin{enumerate}[leftmargin=*]
+    \item Initialize an $L \times L$ grid of empty cells.
+    \item For each time step $t = 1, 2, \ldots, T$:
+    \begin{enumerate}
+        \item Generate a random matrix $R_{ij} \sim \text{Uniform}(0,1)$; set $\sigma_{ij} = 1$ wherever $\sigma_{ij} = 0$ and $R_{ij} < p$.
+        \item For each tree cell, draw a random number; if less than $f$, ignite the tree.
+        \item For each ignited tree (if not already burned in this step), perform BFS to identify and burn the connected cluster. Record the cluster size.
+    \end{enumerate}
+    \item Record tree density and avalanche sizes at each step.
+\end{enumerate}
+
+Fire spread is computed via BFS with periodic boundary conditions handled by modular arithmetic on the row and column indices.
+
+\subsection{Analysis Methods}
+
+We analyse the avalanche size distribution using:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Log-binned histograms:} The fire size data is binned on a logarithmic scale to produce smooth probability density estimates on log--log axes.
+    \item \textbf{Maximum likelihood estimation (MLE):} The power-law exponent $\tau$ is estimated using the discrete MLE formula~\citep{clauset2009}:
+    \begin{equation}
+        \hat{\tau} = 1 + n \left[\sum_{i=1}^{n} \ln \frac{s_i}{s_{\min} - 1/2}\right]^{-1}
+        \label{eq:mle}
+    \end{equation}
+    where $n$ is the number of observations with $s_i \geq s_{\min}$.
+    \item \textbf{Complementary cumulative distribution function (CCDF):} $P(S \geq s)$ is plotted on log--log axes as a more robust alternative to the PDF.
+\end{itemize}
+
+% ════════════════════════════════════════════════════════════════════
+\section{Results}
+\label{sec:results}
+
+\subsection{Lattice Evolution}
+
+Figure~\ref{fig:snapshots} shows snapshots of the lattice at three different times during the Von~Neumann simulation.
+At early times ($t = 200$), the lattice has relatively few trees and they are sparsely distributed.
+By $t = 2000$, the system has reached a statistical steady state: clusters of trees of various sizes coexist with empty patches left by recent fires.
+The fractal-like structure of the tree clusters at $t = 5000$ is characteristic of a system at criticality.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/grid_snapshots.png}
+    \caption{Lattice snapshots at $t = 200$, $2000$, and $5000$ for Von~Neumann connectivity. Dark brown: empty; green: tree.}
+    \label{fig:snapshots}
+\end{figure}
+
+\subsection{Tree Density Dynamics}
+
+Figure~\ref{fig:density} shows the tree density $\rho(t)$ over time for both connectivity types.
+After a transient growth phase, the density fluctuates around a steady-state mean.
+For Von~Neumann connectivity, $\langle \rho \rangle \approx 0.35$, while for Moore connectivity, $\langle \rho \rangle \approx 0.25$.
+The lower density for Moore connectivity is expected: with more neighbours, fire can spread through sparser forests, preventing the build-up of large dense clusters.
+
+The fluctuations in $\rho(t)$ are characteristic of SOC: large fires cause sudden drops in density, followed by slow recovery as trees regrow.
+The system never settles to a fixed density but instead oscillates around the critical value.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/tree_density.png}
+    \caption{Tree density time series for Von~Neumann (left) and Moore (right) connectivity. Red dashed line: steady-state mean (second half of simulation).}
+    \label{fig:density}
+\end{figure}
+
+\subsection{Avalanche Size Distribution}
+
+Figure~\ref{fig:avalanche} shows the log-binned probability density of avalanche sizes for both connectivity types.
+The distribution spans several decades on both axes, consistent with a power-law relationship $P(s) \sim s^{-\tau}$.
+
+The MLE estimates of the power-law exponent are:
+\begin{itemize}[leftmargin=*]
+    \item Von~Neumann: $\tau \approx 1.32$ (with $s_{\min} = 5$)
+    \item Moore: $\tau \approx 1.29$ (with $s_{\min} = 5$)
+\end{itemize}
+
+These values are broadly consistent with previously reported values for the forest fire model in the literature, which range from approximately 1.0 to 1.4 depending on the specific variant and lattice size.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/avalanche_distribution.png}
+    \caption{Avalanche size distribution for Von~Neumann and Moore connectivity (log-binned PDF). Dashed lines show the power-law fit.}
+    \label{fig:avalanche}
+\end{figure}
+
+\subsection{Complementary CDF}
+
+The CCDF (Figure~\ref{fig:ccdf}) provides a cleaner view of the tail behaviour.
+Both connectivity types show a clear power-law regime extending over more than two decades, followed by a cutoff at the largest avalanche sizes imposed by the finite lattice.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/ccdf.png}
+    \caption{Complementary CDF of avalanche sizes.}
+    \label{fig:ccdf}
+\end{figure}
+
+\subsection{Effect of Connectivity}
+
+Figure~\ref{fig:connectivity} compares the mean and maximum avalanche sizes for both connectivity types.
+Moore connectivity produces larger mean fire sizes ($\approx 699$ vs.\ $\approx 402$) and larger maximum fires ($\approx 8203$ vs.\ $\approx 8949$).
+However, both connectivity types exhibit qualitatively similar power-law behaviour, with similar exponents.
+
+This result demonstrates that while the \textit{quantitative} details of the critical state depend on connectivity, the \textit{qualitative} SOC behaviour is robust --- a manifestation of universality.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/connectivity_bars.png}
+    \caption{Mean and maximum avalanche sizes for Von~Neumann (4) and Moore (8) connectivity.}
+    \label{fig:connectivity}
+\end{figure}
+
+\subsection{Avalanche Time Series}
+
+Figure~\ref{fig:timeseries} shows the time series of individual fire sizes for the Von~Neumann simulation.
+The ``bursty'' pattern --- many small fires punctuated by occasional very large ones --- is a hallmark of SOC.
+There is no characteristic fire size; instead, events of all magnitudes occur, consistent with the power-law distribution.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/fire_timeseries.png}
+    \caption{Avalanche sizes over time (Von~Neumann connectivity). Note the intermittent large events.}
+    \label{fig:timeseries}
+\end{figure}
+
+% ════════════════════════════════════════════════════════════════════
+\section{Discussion: Self-Organized Criticality}
+\label{sec:soc}
+
+\subsection{Evidence for SOC}
+
+Our simulation provides multiple lines of evidence that the forest fire model reaches a self-organized critical state:
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Power-law avalanche distribution.}
+    The fire size distribution follows $P(s) \sim s^{-\tau}$ with $\tau \approx 1.3$, indicating scale-free behaviour.
+    This means there is no characteristic fire size --- small and large fires are governed by the same underlying dynamics.
+
+    \item \textbf{Stationary fluctuations.}
+    The tree density does not converge to a fixed value but fluctuates around a well-defined mean.
+    These fluctuations are not random noise; they are driven by the interaction between growth and fire, and their statistics carry the signature of criticality.
+
+    \item \textbf{No parameter tuning.}
+    The system reaches the critical state for a wide range of parameters, as long as $p/f \gg 1$ (separation of time scales).
+    We do not need to fine-tune any parameter to a critical value, unlike in equilibrium phase transitions.
+    The system \textit{organizes itself} to the critical point.
+
+    \item \textbf{Fractal cluster structure.}
+    The lattice snapshots (Figure~\ref{fig:snapshots}) show tree clusters with irregular, fractal-like boundaries, characteristic of systems at criticality.
+\end{enumerate}
+
+\subsection{Role of Connectivity}
+
+The connectivity of the lattice determines the percolation properties of the tree clusters.
+Higher connectivity (Moore vs.\ Von~Neumann) lowers the percolation threshold: trees can form connected clusters at lower densities.
+This has two consequences:
+\begin{itemize}[leftmargin=*]
+    \item The steady-state tree density is lower (fires can propagate through sparser forests).
+    \item Individual fires tend to be larger (clusters span more cells).
+\end{itemize}
+However, the \textit{critical exponent} $\tau$ remains approximately the same, suggesting that the universality class is determined by the spatial dimensionality rather than the specific neighbourhood structure.
+
+\subsection{Limitations}
+
+Our study has several limitations:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Finite-size effects.} The $128 \times 128$ lattice limits the range of the power-law regime. Larger lattices would extend the scaling region.
+    \item \textbf{Instantaneous burning.} We assume fire burns an entire cluster in one step. The Drossel--Schwagl model with finite-rate burning can exhibit different behaviour.
+    \item \textbf{Statistical estimation.} The MLE for the power-law exponent is sensitive to the choice of $s_{\min}$. More rigorous approaches (e.g., the method of Clauset, Shalizi, and Newman) could improve the estimate.
+\end{itemize}
+
+% ════════════════════════════════════════════════════════════════════
+\section{Conclusion}
+\label{sec:conclusion}
+
+We have demonstrated that the Drossel--Schwagl forest fire model exhibits self-organized criticality through computational simulation.
+The model's three key complexity-science attributes --- noise (stochastic tree growth), avalanches (fire cascades), and connectivity (lattice neighbourhood) --- interact to drive the system toward a critical state characterized by power-law fire size distributions with exponent $\tau \approx 1.3$.
+
+Comparing Von~Neumann and Moore connectivity, we found that higher connectivity shifts the critical state to lower tree densities and larger mean fire sizes, but the power-law exponent is approximately invariant, consistent with universality.
+
+The forest fire model serves as a compelling pedagogical example of SOC: its simplicity makes it computationally accessible, while its rich behaviour illustrates the core concepts of complexity science.
+
+% ════════════════════════════════════════════════════════════════════
+\section*{Acknowledgements}
+
+This project was completed with the assistance of Claude (Anthropic), an AI language model, which helped with code development, data analysis, and manuscript preparation.
+All simulations were implemented in Python using NumPy and Matplotlib.
+
+% ════════════════════════════════════════════════════════════════════
+\section*{List of Prompts Used}
+
+The following prompts were used with Claude (Anthropic) during the development of this project:
+
+\begin{enumerate}[leftmargin=*, label=\arabic*.]
+    \item ``Do this project for me. You can choose any topic but not power grid failure cascades, meme propagation dynamics on social networks, or SOC in financial market contagion. Focus on simulation with detailed code in Python.''
+    \item ``Generate a complete Python simulation of the chosen model with proper avalanche measurement, power-law fitting, and visualization.''
+    \item ``Write the LaTeX manuscript in journal article format covering system description, simulation methodology, results, and SOC analysis.''
+    \item ``Include analysis of how connectivity affects the avalanche distribution and critical state.''
+    \item ``Generate all figures needed for the manuscript: grid snapshots, density time series, avalanche distributions (PDF and CCDF), connectivity comparison, and fire time series.''
+\end{enumerate}
+
+% ════════════════════════════════════════════════════════════════════
+\bibliographystyle{plainnat}
+\begin{thebibliography}{9}
+
+\bibitem[Bak et~al.(1987)]{bak1987}
+P.~Bak, C.~Tang, and K.~Wiesenfeld.
+\newblock Self-organized criticality: An explanation of the 1/f noise.
+\newblock \textit{Physical Review Letters}, 59(4):381--384, 1987.
+
+\bibitem[Drossel and Schwabl(1992)]{drossel1992}
+B.~Drossel and F.~Schwabl.
+\newblock Self-organized critical forest-fire model.
+\newblock \textit{Physical Review Letters}, 69(11):1629--1632, 1992.
+
+\bibitem[Olami et~al.(1992)]{olami1992}
+Z.~Olami, H.~J.~S.~Feder, and K.~Christensen.
+\newblock Self-organized criticality in a continuous, nonconservative cellular automaton modeling earthquakes.
+\newblock \textit{Physical Review Letters}, 68(8):1244--1247, 1992.
+
+\bibitem[Clauset et~al.(2009)]{clauset2009}
+A.~Clauset, C.~R.~Shalizi, and M.~E.~J.~Newman.
+\newblock Power-law distributions in empirical data.
+\newblock \textit{SIAM Review}, 51(4):661--703, 2009.
+
+\bibitem[Bak(1996)]{bak1996}
+P.~Bak.
+\newblock \textit{How Nature Works: The Science of Self-Organized Criticality}.
+\newblock Copernicus, New York, 1996.
+
+\bibitem[Jensen(1998)]{jensen1998}
+H.~J.~Jensen.
+\newblock \textit{Self-Organized Criticality: Emergent Complex Behavior in Physical and Biological Systems}.
+\newblock Cambridge University Press, 1998.
+
+\bibitem[Pruessner(2012)]{pruessner2012}
+G.~Pruessner.
+\newblock \textit{Self-Organised Criticality: Theory, Models and Characterisation}.
+\newblock Cambridge University Press, 2012.
+
+\end{thebibliography}
+
+% ════════════════════════════════════════════════════════════════════
+\appendix
+\section{Complete Python Source Code}
+\label{app:code}
+
+The complete simulation code is available in the file \texttt{forest\_fire\_soc.py} and on the GitHub repository (link submitted separately).
+The code is structured into three main components:
+
+\begin{enumerate}[leftmargin=*]
+    \item \texttt{ForestFireSOC} class: Implements the lattice, growth, lightning, and BFS-based cluster burning.
+    \item Analysis functions: Log-binned PDF, MLE power-law fitting, and CCDF computation.
+    \item Visualization functions: Grid snapshots, density plots, avalanche distributions, and connectivity comparisons.
+\end{enumerate}
+
+Key implementation details:
+\begin{itemize}[leftmargin=*]
+    \item Periodic boundary conditions are handled via modular arithmetic: \texttt{(r + dr) \% L}.
+    \item Fire spread uses breadth-first search (BFS) with a \texttt{deque} for $O(n)$ cluster identification.
+    \item Tree growth uses vectorized NumPy operations for efficiency.
+    \item The power-law exponent is estimated using the discrete MLE formula (Equation~\ref{eq:mle}).
+\end{itemize}
+
+\end{document}
